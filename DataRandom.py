@@ -1,27 +1,23 @@
-import random
+from random import random
+from random import randint
+from random import choice
+from random import choices
+from string import ascii_letters
+from string import digits
+from string import punctuation
+from collections.abc import Iterable
 
 
 class DataRandom:
-    symbols = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
-    __TYPE_NAMES = ('int', 'float', 'str', 'bool', 'NoneType', 'list', 'dict')
+    symbols = ascii_letters + digits + punctuation
 
-    FL_INT = 0x01
-    FL_FLOAT = 0x02
-    FL_STR = 0x04
-    FL_BOOL = 0x08
-    FL_NONE = 0x10
+    NUMERIC = (int, float)
+    SIMPLE_WITHOUT_NONE = (int, float, str, bool)
+    WITHOUT_COLLECTIONS = (int, float, str, bool, None)
 
-    FL_NUMERIC = FL_INT | FL_FLOAT  # 0x03
-    FL_SIMPLE_WITHOUT_NONE = FL_INT | FL_FLOAT | FL_STR | FL_BOOL  # 0x0F
-    FL_WITHOUT_COLLECTIONS = 0x1F
-
-    FL_LIST = 0x20
-    FL_DICT = 0x40
-    FL_ALL = 0x7F
-
-    # init object with defaults or selected params
     def __init__(self, int_bundle=(-1, 1), float_bundle=(-1, 1), round_digits=3, length=8, nested_level=1, elem_count=5,
-                 nested_elem_count=10, flags=FL_SIMPLE_WITHOUT_NONE):
+                 nested_elem_count=10, types=NUMERIC):
+        """ Initialize randomization object with defaults or selected parameters """
         try:
             self.__int_bundle = (min(int_bundle), max(int_bundle))
         except TypeError:
@@ -37,12 +33,11 @@ class DataRandom:
         self.__level = nested_level
         self.__count = elem_count
         self.__nested_count = nested_elem_count
-        self.__flags = flags
-        self.__update_types()
+        self.__types = types if isinstance(types, Iterable) else [types]
 
-    # modify generator parameters
     def set_param(self, int_bundle=None, float_bundle=None, round_digits=None, length=None, nested_level=None,
-                  elem_count=None, nested_elem_count=None, flags=None):
+                  elem_count=None, nested_elem_count=None, types=None):
+        """ Modify randomization parameters """
         try:
             self.__int_bundle = (min(int_bundle), max(int_bundle)) if int_bundle else self.__int_bundle
         except TypeError:
@@ -59,63 +54,44 @@ class DataRandom:
         self.__level = nested_level if nested_level else self.__level
         self.__count = elem_count if elem_count else self.__count
         self.__nested_count = nested_elem_count if nested_elem_count else self.__nested_count
-        self.__flags = flags if flags else self.__flags
-        self.__update_types()
 
-    def __update_types(self):
-        # напихиваем в словарь названия типов
-        self.__types = []
-        if self.__flags & self.FL_INT != 0:
-            self.__types.append(self.__TYPE_NAMES[0])  # int
-        if self.__flags & self.FL_FLOAT != 0:
-            self.__types.append(self.__TYPE_NAMES[1])  # float
-        if self.__flags & self.FL_STR != 0:
-            self.__types.append(self.__TYPE_NAMES[2])  # str
-        if self.__flags & self.FL_BOOL != 0:
-            self.__types.append(self.__TYPE_NAMES[3])  # bool
-        if self.__flags & self.FL_NONE != 0:
-            self.__types.append(self.__TYPE_NAMES[4])  # NoneType
-        if (self.__flags & self.FL_LIST) != 0:
-            self.__types.append(self.__TYPE_NAMES[5])  # list
-        if (self.__flags & self.FL_DICT) != 0:
-            self.__types.append(self.__TYPE_NAMES[6])  # dict
+        types = types if isinstance(types, Iterable) else [types]
+        self.__types = types if types else self.__types
 
-    # set random sign for numeric
     @staticmethod
     def random_sign(num):
+        """ Set random sign for given numeric """
         if isinstance(num, int) or isinstance(num, float):
-            return num if random.randint(0, 1) else -num
+            return num if randint(0, 1) else -num
         else:
             return None
 
-    # Returns random int, float, str, bool or None
     def random_primitive(self):
-        if not self.__flags:
+        """ Returns random value of acceptable type (set in .__types) : int, float, str, bool or None """
+        if not self.__types:
             return None
 
         # Random type of value
-        tp = random.choice(self.__types)
-
-        # Random value of needed type
-        if tp == self.__TYPE_NAMES[0]:      # int
-            r = random.randint(self.__int_bundle[0], self.__int_bundle[1])
-        elif tp == self.__TYPE_NAMES[1]:    # float
-            n = random.randint(self.__float_bundle[0], self.__float_bundle[1])
-            r = random.random()
+        tp = choice(self.__types)
+        if tp is int:           # generate int
+            r = randint(self.__int_bundle[0], self.__int_bundle[1])
+        elif tp is float:       # generate float
+            n = randint(self.__float_bundle[0], self.__float_bundle[1])
+            r = random()
             r = round(n + r, self.__rd) if n + r <= self.__float_bundle[1] else round(n - r, self.__rd)
-        elif tp == self.__TYPE_NAMES[2]:    # str
-            r = ''.join([random.choice(list(self.symbols)) for i in range(self.__ln)])
-        elif tp == self.__TYPE_NAMES[3]:    # bool
-            r = bool(random.randint(0, 1))
-        elif tp == self.__TYPE_NAMES[4]:    # None
+        elif tp is str:         # generate str
+            r = ''.join(choices(self.symbols, k=self.__ln))
+        elif tp is bool:        # generate bool
+            r = bool(randint(0, 1))
+        elif tp is None:        # generate NoneType
             r = None
-        else:  # set as None if type = list or dict
+        else:                   # NOTE: you can add your own class here
             r = None
         return r
 
-    # Returns random list with nested lists according to nesting level; level=0 returns list with primitives
-    # level=-2 runs method with non-object based parameter 'nested_level'
     def random_list(self, nested=False):
+        """ Returns list of random values with nested lists according to nesting level;
+            level=0 returns list with primitives (int, float, str, bool or None) """
         res = []
         # checking if is running for nested
         items_count = self.__nested_count if nested else self.__count
@@ -128,12 +104,24 @@ class DataRandom:
                 res.append(self.random_primitive())
         return res
 
-    # TODO: Returns random list with primitives, lists and dicts
-    def random_data(self, nested=False):
-        pass
+    def generator(self, nested=False):
+        """ Returns generator of random values with nested lists according to nesting level;
+            level=0 returns list with primitives (int, float, str, bool or None) """
+        # checking if is running for nested
+        items_count = self.__nested_count if nested else self.__count
+        for i in range(items_count):
+            if self.__level:
+                self.__level -= 1
+                yield self.random_list(True)
+                self.__level += 1
+            else:
+                yield self.random_primitive()
 
 
+# debug
 if __name__ == '__main__':
-    a = DataRandom(float_bundle=(-3, 3), flags=DataRandom.FL_FLOAT)
-    print(a.random_list())
-    pass
+    a = DataRandom(float_bundle=(-3, 3), nested_level=1, elem_count=5, nested_elem_count=3, types=str)
+    gen = a.generator()
+
+    for elem in gen:
+        print(elem)
