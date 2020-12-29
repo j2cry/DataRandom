@@ -99,6 +99,14 @@ class DataRandom:
                 res.append(self.random_primitive())
         return res
 
+    def random_dict(self, nested=False):
+        """ Generate dictionary with actual parameters """
+        items_count = self.__nested_count if nested else self.__count
+        dictionary = {}
+        for i in range(items_count):
+            dictionary[i] = self.random_primitive()
+        return dictionary
+
     def generator(self, nested=False):
         """ Returns generator of random values with nested lists according to nesting level;
             level=0 returns list with primitives (int, float, str, bool or None) """
@@ -113,7 +121,17 @@ class DataRandom:
                 yield self.random_primitive()
 
     def random_by_model(self, model):
-        """ Returns list of random values according to model structure """
+        """ Returns list of random values according to model structure
+            model looks like this in any combinations
+            [{0: str, 1: [float, float], 2: bool}, {0: str, 1: [int, int], 2: bool}, {0: str, 1: float, 2: bool}] or
+            {0: float, 1: float, 2: [bool, str], 3: [{0: float, 1: float}, {0: str, 1: str}] } """
+        if isinstance(model, dict):
+            dictionary = dict()
+            for key, value in model.items():
+                random_value = self.random_by_model(value) if isinstance(value, Iterable) \
+                    else self.random_primitive(value)
+                dictionary[key] = random_value
+            return dictionary
         if isinstance(model, Iterable):
             collection = []
             for element in model:
@@ -125,9 +143,12 @@ class DataRandom:
 
 # debug
 if __name__ == '__main__':
-    a = DataRandom(float_bundle=(-3, 3), nested_level=1, elem_count=5, nested_elem_count=3, types=str)
+    a = DataRandom(float_bundle=(-3, 3), nested_level=1, elem_count=10, nested_elem_count=3, types=float)
 
-    pattern = [str, int, float, float, bool, [float, float, str]]
-
+    # pattern = [str, int, float, float, bool, [float, float, str]]
+    # pattern = [float, {0: float, 3: [float, {0: str, 1: str}], 'text': str, 4: bool}]
+    pattern = [{0: str, 1: [float, float], 2: bool}, {0: str, 1: [int, int], 2: bool}, {0: str, 1: float, 2: bool}]
+    # print(pattern)
     data = a.random_by_model(pattern)
+    # data = a.random_dict()
     print(data)
