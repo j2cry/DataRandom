@@ -1,10 +1,5 @@
-from random import random
-from random import randint
-from random import choice
-from random import choices
-from string import ascii_letters
-from string import digits
-from string import punctuation
+from random import random, randint, choice, choices
+from string import ascii_letters, digits, punctuation
 from collections.abc import Iterable
 
 
@@ -66,13 +61,13 @@ class DataRandom:
         else:
             return None
 
-    def random_primitive(self):
+    def random_primitive(self, target_type=None):
         """ Returns random value of acceptable type (set in .__types) : int, float, str, bool or None """
         if not self.__types:
             return None
 
-        # Random type of value
-        tp = choice(self.__types)
+        # Random type of value if it isn't set directly
+        tp = target_type if target_type else choice(self.__types)
         if tp is int:           # generate int
             r = randint(self.__int_bundle[0], self.__int_bundle[1])
         elif tp is float:       # generate float
@@ -117,11 +112,22 @@ class DataRandom:
             else:
                 yield self.random_primitive()
 
+    def random_by_model(self, model):
+        """ Returns list of random values according to model structure """
+        if isinstance(model, Iterable):
+            collection = []
+            for element in model:
+                collection.append(self.random_by_model(element))
+            return collection
+        else:
+            return self.random_primitive(model)
+
 
 # debug
 if __name__ == '__main__':
     a = DataRandom(float_bundle=(-3, 3), nested_level=1, elem_count=5, nested_elem_count=3, types=str)
-    gen = a.generator()
 
-    for elem in gen:
-        print(elem)
+    pattern = [str, int, float, float, bool, [float, float, str]]
+
+    data = a.random_by_model(pattern)
+    print(data)
