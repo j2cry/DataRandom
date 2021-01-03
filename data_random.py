@@ -1,6 +1,6 @@
 from random import random, randint, choice, choices
 from string import ascii_letters, digits, punctuation
-from collections.abc import Iterable
+from collections.abc import Iterable, Generator
 
 
 class DataRandom:
@@ -10,18 +10,11 @@ class DataRandom:
     SIMPLE_WITHOUT_NONE = (int, float, str, bool)
     WITHOUT_COLLECTIONS = (int, float, str, bool, None)
 
-    def __init__(self, int_bundle=(-1, 1), float_bundle=(-1, 1), round_digits=3, length=8, nested_level=1, elem_count=5,
-                 nested_elem_count=10, types=NUMERIC):
+    def __init__(self, int_bundle: (int, int) = (-1, 1), float_bundle: (float, float) = (-1.0, 1.0), round_digits=3,
+                 length=8, nested_level=1, elem_count=5, nested_elem_count=10, types=NUMERIC):
         """ Initialize randomization object with defaults or selected parameters """
-        try:
-            self.__int_bundle = (min(int_bundle), max(int_bundle))
-        except TypeError:
-            self.__int_bundle = (-1, 1)
-
-        try:
-            self.__float_bundle = (min(float_bundle), max(float_bundle))
-        except TypeError:
-            self.__float_bundle = (-1, 1)
+        self.__set_bundle(int_bundle)
+        self.__set_bundle(float_bundle)
 
         self.__rd = round_digits
         self.__ln = length
@@ -30,20 +23,12 @@ class DataRandom:
         self.__nested_count = nested_elem_count
         self.__types = types if isinstance(types, Iterable) else [types]
 
-    def set_param(self, int_bundle=None, float_bundle=None, round_digits=None, length=None, nested_level=None,
-                  elem_count=None, nested_elem_count=None, types=None):
+    def set_param(self, int_bundle: (int, int) = None, float_bundle: (float, float) = None, round_digits=None,
+                  length=None, nested_level=None, elem_count=None, nested_elem_count=None, types=None):
         """ Modify randomization parameters """
-        try:
-            self.__int_bundle = (min(int_bundle), max(int_bundle)) if int_bundle else self.__int_bundle
-        except TypeError:
-            pass
+        self.__set_bundle(int_bundle)
+        self.__set_bundle(float_bundle)
 
-        try:
-            self.__float_bundle = (min(float_bundle), max(float_bundle)) if float_bundle else self.__float_bundle
-        except TypeError:
-            pass
-
-        self.__float_bundle = (min(float_bundle), max(float_bundle)) if float_bundle else self.__float_bundle
         self.__rd = round_digits if round_digits else self.__rd
         self.__ln = length if length else self.__ln
         self.__level = nested_level if nested_level else self.__level
@@ -52,6 +37,17 @@ class DataRandom:
 
         types = types if isinstance(types, Iterable) else [types]
         self.__types = types if types else self.__types
+
+    def __set_bundle(self, bundle: tuple):
+        """ Set bundles for int / float randomization (depends on values in bundle) """
+        if isinstance(bundle, Iterable):
+            if all(isinstance(value, int) for value in bundle):         # set int bundle
+                self.__int_bundle = (min(bundle), max(bundle))
+            elif all(isinstance(value, float) for value in bundle):     # set float bundle
+                self.__float_bundle = (min(bundle), max(bundle))
+            else:       # set defaults if bundle is iterable with non-numeric elements
+                self.__int_bundle = (-1, 1)
+                self.__float_bundle = (-1, 1)
 
     @staticmethod
     def random_sign(num):
@@ -84,19 +80,29 @@ class DataRandom:
             r = None
         return r
 
-    def random_list(self, nested=False):
-        """ Returns list of random values with nested lists according to nesting level;
+    def generate_list(self, nested=False):
+        """ Returns generator of random values with nested lists according to nesting level;
             level=0 returns list with primitives (int, float, str, bool or None) """
-        res = []
         # checking if is running for nested
         items_count = self.__nested_count if nested else self.__count
         for i in range(items_count):
             if self.__level:
                 self.__level -= 1
-                res.append(self.random_list(True))
+                yield self.generate_list(True)
                 self.__level += 1
             else:
-                res.append(self.random_primitive())
+                yield self.random_primitive()
+
+    def random_list(self, generator: Generator = None):
+        """ Returns list of random values with nested lists according to nesting level;
+            level=0 returns list with primitives (int, float, str, bool or None) """
+        res = []
+        generator = self.generate_list() if not generator else generator
+        for element in generator:
+            if not isinstance(element, Generator):
+                res.append(element)
+            else:
+                res.append(self.random_list(element))
         return res
 
     def random_dict(self, nested=False):
@@ -106,19 +112,6 @@ class DataRandom:
         for i in range(items_count):
             dictionary[i] = self.random_primitive()
         return dictionary
-
-    def generator(self, nested=False):
-        """ Returns generator of random values with nested lists according to nesting level;
-            level=0 returns list with primitives (int, float, str, bool or None) """
-        # checking if is running for nested
-        items_count = self.__nested_count if nested else self.__count
-        for i in range(items_count):
-            if self.__level:
-                self.__level -= 1
-                yield self.random_list(True)
-                self.__level += 1
-            else:
-                yield self.random_primitive()
 
     def random_by_model(self, model):
         """ Returns list of random values according to model structure
@@ -143,12 +136,29 @@ class DataRandom:
 
 # debug
 if __name__ == '__main__':
-    a = DataRandom(float_bundle=(-3, 3), nested_level=1, elem_count=10, nested_elem_count=3, types=float)
+    a = DataRandom(float_bundle=(-3.0, 3.0), nested_level=1, elem_count=4, nested_elem_count=3, types=(float, str))
 
     # pattern = [str, int, float, float, bool, [float, float, str]]
     # pattern = [float, {0: float, 3: [float, {0: str, 1: str}], 'text': str, 4: bool}]
     pattern = [{0: str, 1: [float, float], 2: bool}, {0: str, 1: [int, int], 2: bool}, {0: str, 1: float, 2: bool}]
     # print(pattern)
-    data = a.random_by_model(pattern)
+    # data = a.random_by_model(pattern)
     # data = a.random_dict()
-    print(data)
+
+    # gen = a.generator()
+    # res = []
+    # try:
+    #     value = next(gen)
+    #     res.append(value)
+    #     if isinstance(value, Generator):
+    #         print('yeah')
+    #     while value:
+    #         value = next(gen)
+    #         res.append(value)
+    # except StopIteration:
+    #     pass
+    # print(res)
+    data = a.random_list()
+    numbers = DataRandom(int_bundle=(-10, 10), elem_count=40, types=int, nested_level=0).random_list()
+
+    print(numbers)
