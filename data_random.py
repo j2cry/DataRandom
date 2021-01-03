@@ -99,10 +99,10 @@ class DataRandom:
         res = []
         generator = self.generate_list() if not generator else generator
         for element in generator:
-            if not isinstance(element, Generator):
-                res.append(element)
-            else:
+            if isinstance(element, Generator):
                 res.append(self.random_list(element))
+            else:
+                res.append(element)
         return res
 
     def random_dict(self, nested=False):
