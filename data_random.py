@@ -21,7 +21,7 @@ class DataRandom:
         self.__level = nested_level
         self.__count = elem_count
         self.__nested_count = nested_elem_count
-        self.__types = types if isinstance(types, Iterable) else [types]
+        self.__set_types(types)
 
     def set_param(self, int_bundle: (int, int) = None, float_bundle: (float, float) = None, round_digits=None,
                   length=None, nested_level=None, elem_count=None, nested_elem_count=None, types=None):
@@ -34,9 +34,7 @@ class DataRandom:
         self.__level = nested_level if nested_level else self.__level
         self.__count = elem_count if elem_count else self.__count
         self.__nested_count = nested_elem_count if nested_elem_count else self.__nested_count
-
-        types = types if isinstance(types, Iterable) else [types]
-        self.__types = types if types else self.__types
+        self.__set_types(types)
 
     def __set_bundle(self, bundle: (int, int) or (float, float)):
         """ Set bundles for int / float randomization (depends on values in bundle) """
@@ -49,13 +47,16 @@ class DataRandom:
                 self.__int_bundle = (-1, 1)
                 self.__float_bundle = (-1.0, 1.0)
 
-    @staticmethod
-    def random_sign(num):
-        """ Set random sign for given numeric """
-        if isinstance(num, int) or isinstance(num, float):
-            return num if randint(0, 1) else -num
+    def __set_types(self, types):
+        """ Set types for randomization and transpose to Iterable if required """
+        if isinstance(types, Iterable) and not isinstance(types, str):
+            self.__types = types
         else:
-            return None
+            self.__types = tuple([types])
+
+    @property
+    def types(self):
+        return self.__types
 
     def random_primitive(self, target_type=None):
         """ Returns random value of acceptable type (set in .__types) : int, float, str, bool or None """
@@ -138,31 +139,35 @@ class DataRandom:
             return self.random_primitive(model)
 
 
+def random_sign(num):
+    """ Set random sign for given numeric """
+    if isinstance(num, int) or isinstance(num, float):
+        return num if randint(0, 1) else -num
+    else:
+        return None
+
+
+def expand_nested(source) -> Iterable:
+    """ Generator expands all nested values to non-nested iterable
+        str expands as whole str (without per char expanding) """
+    for element in source:
+        if isinstance(element, Iterable) and not isinstance(element, str):
+            yield from expand_nested(element)
+        else:
+            yield element
+
+
 # debug
 if __name__ == '__main__':
-    a = DataRandom(float_bundle=(-3.0, 3.0), nested_level=1, elem_count=4, nested_elem_count=3, types=(float, str))
+    from itertools import chain
+    data = DataRandom(float_bundle=(-3.0, 3.0), nested_level=2, elem_count=4, nested_elem_count=3, types=float)
 
     # pattern = [str, int, float, float, bool, [float, float, str]]
     # pattern = [float, {0: float, 3: [float, {0: str, 1: str}], 'text': str, 4: bool}]
-    pattern = [{0: str, 1: [float, float], 2: bool}, {0: str, 1: [int, int], 2: bool}, {0: str, 1: float, 2: bool}]
-    # print(pattern)
-    # data = a.random_by_model(pattern)
-    # data = a.random_dict()
+    # pattern = [{0: str, 1: [float, float], 2: bool}, {0: str, 1: [int, int], 2: bool}, {0: str, 1: float, 2: bool}]
 
-    # gen = a.generator()
-    # res = []
-    # try:
-    #     value = next(gen)
-    #     res.append(value)
-    #     if isinstance(value, Generator):
-    #         print('yeah')
-    #     while value:
-    #         value = next(gen)
-    #         res.append(value)
-    # except StopIteration:
-    #     pass
-    # print(res)
-    data = a.random_list()
-    numbers = DataRandom(float_bundle=(-0.1, 0.1), elem_count=40, types=float, nested_level=0).random_list()
-
+    numbers = data.random_list()
     print(numbers)
+
+    # dbg = check_nested_values(numbers, lambda b: isinstance(b, data.types))
+    # print(dbg)
