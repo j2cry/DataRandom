@@ -13,10 +13,10 @@ class DataRandom:
     def __init__(self, int_bundle: (int, int) = (-1, 1), float_bundle: (float, float) = (-1.0, 1.0), round_digits=3,
                  length=8, nested_level=1, elem_count=5, nested_elem_count=10, types=NUMERIC):
         """ Initialize randomization object with defaults or selected parameters """
+        self.__rd = round_digits
         self.__set_bundle(int_bundle)
         self.__set_bundle(float_bundle)
 
-        self.__rd = round_digits
         self.__ln = length
         self.__level = nested_level
         self.__count = elem_count
@@ -26,10 +26,10 @@ class DataRandom:
     def set_param(self, int_bundle: (int, int) = None, float_bundle: (float, float) = None, round_digits=None,
                   length=None, nested_level=None, elem_count=None, nested_elem_count=None, types=None):
         """ Modify randomization parameters """
+        self.__rd = round_digits if round_digits else self.__rd
         self.__set_bundle(int_bundle)
         self.__set_bundle(float_bundle)
 
-        self.__rd = round_digits if round_digits else self.__rd
         self.__ln = length if length else self.__ln
         self.__level = nested_level if nested_level else self.__level
         self.__count = elem_count if elem_count else self.__count
@@ -38,16 +38,16 @@ class DataRandom:
         types = types if isinstance(types, Iterable) else [types]
         self.__types = types if types else self.__types
 
-    def __set_bundle(self, bundle: tuple):
+    def __set_bundle(self, bundle: (int, int) or (float, float)):
         """ Set bundles for int / float randomization (depends on values in bundle) """
         if isinstance(bundle, Iterable):
             if all(isinstance(value, int) for value in bundle):         # set int bundle
                 self.__int_bundle = (min(bundle), max(bundle))
             elif all(isinstance(value, float) for value in bundle):     # set float bundle
-                self.__float_bundle = (min(bundle), max(bundle))
+                self.__float_bundle = (round(min(bundle), self.__rd), round(max(bundle), self.__rd))
             else:       # set defaults if bundle is iterable with non-numeric elements
                 self.__int_bundle = (-1, 1)
-                self.__float_bundle = (-1, 1)
+                self.__float_bundle = (-1.0, 1.0)
 
     @staticmethod
     def random_sign(num):
@@ -66,14 +66,18 @@ class DataRandom:
         tp = target_type if target_type else choice(self.__types)
         if tp is int:           # generate int
             r = randint(self.__int_bundle[0], self.__int_bundle[1])
+
         elif tp is float:       # generate float
-            n = randint(self.__float_bundle[0], self.__float_bundle[1])
-            r = random()
-            r = round(n + r, self.__rd) if n + r <= self.__float_bundle[1] else round(n - r, self.__rd)
+            # generate correct range
+            available_range = sum(map(abs, self.__float_bundle))
+            r = round(available_range * random() - abs(self.__float_bundle[0]), self.__rd)
+
         elif tp is str:         # generate str
             r = ''.join(choices(self.symbols, k=self.__ln))
+
         elif tp is bool:        # generate bool
             r = bool(randint(0, 1))
+
         elif tp is None:        # generate NoneType
             r = None
         else:                   # NOTE: you can add your own class here
@@ -159,6 +163,6 @@ if __name__ == '__main__':
     #     pass
     # print(res)
     data = a.random_list()
-    numbers = DataRandom(int_bundle=(-10, 10), elem_count=40, types=int, nested_level=0).random_list()
+    numbers = DataRandom(float_bundle=(-0.1, 0.1), elem_count=40, types=float, nested_level=0).random_list()
 
     print(numbers)
